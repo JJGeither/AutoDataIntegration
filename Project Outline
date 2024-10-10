@@ -1,0 +1,12 @@
+loadFromCSV
+standardizeMeasures
+- identify which columns are money, weight, temperature, etc.
+- save column formats (e.g. Column["money"] = Measures.Currency)
+merge
+- tentatively identify matching columns
+- use those to identify matching records
+- repeat the above 2 steps until no new columns and records are found
+formatToUserSpecification
+- restore pre-standardized formats
+- format 
+export
