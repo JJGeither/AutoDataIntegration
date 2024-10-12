@@ -1,0 +1,16 @@
+Name of Category,Similar Names -->,,,,,
+name,name,full name,first name,last name,surname,given name
+date,date,dob,birthdate,day,recorded date,event date
+time,time,timestamp,hour,minute,second,time recorded
+temperature,temperature,temp,degrees,celsius,fahrenheit,thermometer
+status,status,state,condition,flag,current state,
+address,address,location,place,home address,residence,street address
+id,id,identifier,unique id,uuid,identification,
+phone number,phone,phone number,contact number,mobile,cell,telephone
+email,email,email address,e-mail,mail,contact email,
+price,price,cost,value,amount,total,rate
+quantity,quantity,amount,count,number,total count,
+age,age,years,age in years,years old,age group,
+gender,gender,sex,identity,male,female,non-binary
+weight,weight,mass,kg,pounds,lbs,grams
+height,height,tall,centimeters,inches,feet,length
