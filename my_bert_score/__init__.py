@@ -20,6 +20,7 @@ from bert_score.utils import (bert_cos_score_idf, cache_scibert, get_bert_embedd
 # MyBERTScorer based on BERTScorer from the bert_score package
 # Added function get_word_similarity
 #     returns word similarity scores, as the original class can only provide a visual plot with this data
+# Modified get_word_similarity() and plot_example() to work with words instead of tokens
 class MyBERTScorer:
     """
     BERTScore Scorer Object.
@@ -286,10 +287,6 @@ class MyBERTScorer:
             device=self.device,
             all_layers=False,
         )
-        ref_embedding.div_(torch.norm(ref_embedding, dim=-1).unsqueeze(-1))
-        hyp_embedding.div_(torch.norm(hyp_embedding, dim=-1).unsqueeze(-1))
-        sim = torch.bmm(hyp_embedding, ref_embedding.transpose(1, 2))
-        sim = sim.squeeze(0).cpu()
 
         r_tokens = [
             self._tokenizer.decode([i]) for i in sent_encode(self._tokenizer, reference)
@@ -297,22 +294,33 @@ class MyBERTScorer:
         h_tokens = [
             self._tokenizer.decode([i]) for i in sent_encode(self._tokenizer, candidate)
         ][1:-1]
-        sim = sim[1:-1, 1:-1]
 
+        # Convert token embeddings to word embeddings
+        words_candidate = self.split_keep_delimiter(candidate, ",")
+        words_reference = self.split_keep_delimiter(reference, ",")
+        word_embeddings_candidate = self.word_embeddings(words_candidate, h_tokens, hyp_embedding)
+        word_embeddings_reference = self.word_embeddings(words_reference, r_tokens, ref_embedding)
+
+        # Calculate word similarity scores
+        word_embeddings_reference.div_(torch.norm(word_embeddings_reference, dim=-1).unsqueeze(-1))
+        word_embeddings_candidate.div_(torch.norm(word_embeddings_candidate, dim=-1).unsqueeze(-1))
+        sim = torch.bmm(word_embeddings_candidate, word_embeddings_reference.transpose(1, 2))
+        sim = sim.squeeze(0).cpu()
         if self.rescale_with_baseline:
             sim = (sim - self.baseline_vals[2].item()) / (
                 1 - self.baseline_vals[2].item()
             )
 
+        # Plot scores
         fig, ax = plt.subplots(figsize=(len(r_tokens), len(h_tokens)))
         im = ax.imshow(sim, cmap="Blues", vmin=0, vmax=1)
 
         # We want to show all ticks...
-        ax.set_xticks(np.arange(len(r_tokens)))
-        ax.set_yticks(np.arange(len(h_tokens)))
+        ax.set_xticks(np.arange(len(words_reference)))
+        ax.set_yticks(np.arange(len(words_candidate)))
         # ... and label them with the respective list entries
-        ax.set_xticklabels(r_tokens, fontsize=10)
-        ax.set_yticklabels(h_tokens, fontsize=10)
+        ax.set_xticklabels(words_reference, fontsize=10)
+        ax.set_yticklabels(words_candidate, fontsize=10)
         ax.grid(False)
         plt.xlabel("Reference (tokenized)", fontsize=14)
         plt.ylabel("Candidate (tokenized)", fontsize=14)
@@ -329,8 +337,8 @@ class MyBERTScorer:
         plt.setp(ax.get_xticklabels(), rotation=45, ha="right", rotation_mode="anchor")
 
         # Loop over data dimensions and create text annotations.
-        for i in range(len(h_tokens)):
-            for j in range(len(r_tokens)):
+        for i in range(len(words_candidate)):
+            for j in range(len(words_reference)):
                 text = ax.text(
                     j,
                     i,
@@ -346,6 +354,36 @@ class MyBERTScorer:
             print("Saved figure to file: ", fname)
         plt.show()
 
+    # Combines token embeddings into word embeddings by averaging the embeddings of the corresponding tokens for each word
+    #   words is a list where each entry is an individual token or several tokens merged
+    #   tokens is a list of tokens (every token in tokens must be included in words)
+    #   token_embeddings is the embeddings for each token
+    #   ex. words = ["name, age, birthday"], tokens = ["na", "me", ",", "age", ",", "birth", "day"]
+    def word_embeddings(self, words, tokens, token_embeddings):
+        word_embeddings = []
+        token_index = 0
+        for word in words:  # get the embedding for each word by averaging the embeddings of their tokens
+            start = token_index
+            while ''.join(tokens[start:token_index + 1]) != word:  # cat tokens until full word is built
+                token_index += 1
+            end = token_index
+            word_embeddings.append(token_embeddings[0][start + 1:end + 1 + 1].mean(dim=0).unsqueeze(0))
+            token_index += 1
+        total_embedding = torch.cat(word_embeddings, dim=0).unsqueeze(0)  # make the list of word embeddings one tensor
+        return total_embedding
+
+    # like python's split(), but the delimiter is included in the resulting list instead of being discarded
+    # used when converting a sentence into a list of "merged tokens" (multiple tokens concatenated together)
+    #   needed to split the input sentence strings since "," is kept as a token by BERT
+    def split_keep_delimiter(self, sentence: str, delimiter: str):
+        words = sentence.split(delimiter)  # ex. words = ["name", "age", "birthday"]
+        i = 1
+        while i in range(1, len(words)):  # ex. words = ["name", ",", "age", ",", "birthday"]
+            words.insert(i, ',')
+            i += 2
+        return words
+
+    # returns a 2D list with the similarity scores between each word in candidate and reference
     def get_word_similarity(self, candidate, reference, fname=""):
         """
         Args:
@@ -377,10 +415,6 @@ class MyBERTScorer:
             device=self.device,
             all_layers=False,
         )
-        ref_embedding.div_(torch.norm(ref_embedding, dim=-1).unsqueeze(-1))
-        hyp_embedding.div_(torch.norm(hyp_embedding, dim=-1).unsqueeze(-1))
-        sim = torch.bmm(hyp_embedding, ref_embedding.transpose(1, 2))
-        sim = sim.squeeze(0).cpu()
 
         r_tokens = [
             self._tokenizer.decode([i]) for i in sent_encode(self._tokenizer, reference)
@@ -388,11 +422,21 @@ class MyBERTScorer:
         h_tokens = [
             self._tokenizer.decode([i]) for i in sent_encode(self._tokenizer, candidate)
         ][1:-1]
-        sim = sim[1:-1, 1:-1]
 
+        # Convert token embeddings to word embeddings
+        words_candidate = self.split_keep_delimiter(candidate, ",")  # only works for our application of comma separat-
+        words_reference = self.split_keep_delimiter(reference, ",")  # -ed lists of attributes
+        word_embeddings_candidate = self.word_embeddings(words_candidate, h_tokens, hyp_embedding)
+        word_embeddings_reference = self.word_embeddings(words_reference, r_tokens, ref_embedding)
+
+        # Calculate word similarity scores
+        word_embeddings_reference.div_(torch.norm(word_embeddings_reference, dim=-1).unsqueeze(-1))
+        word_embeddings_candidate.div_(torch.norm(word_embeddings_candidate, dim=-1).unsqueeze(-1))
+        sim = torch.bmm(word_embeddings_candidate, word_embeddings_reference.transpose(1, 2))
+        sim = sim.squeeze(0).cpu()
         if self.rescale_with_baseline:
             sim = (sim - self.baseline_vals[2].item()) / (
-                1 - self.baseline_vals[2].item()
+                    1 - self.baseline_vals[2].item()
             )
 
         return [[x.item() for x in y] for y in sim]
