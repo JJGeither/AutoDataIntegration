@@ -1,8 +1,8 @@
 import my_bert_score
 
 # Example schemas for testing
-cols1 = ["country", "size", "pop", "economy", "anthem"]
-cols2 = ["nation", "size", "population", "wealth", "flag"]
+cols1 = ["ISBN", "publisher", "pubCountry", "title", "review"]
+cols2 = ["code", "name", "brand", "origin", "desc"]
 
 # Create custom BERT scorer
 # Arguments:
@@ -18,17 +18,12 @@ scores = scorer.get_word_similarity(','.join(cols1), ','.join(cols2))
 threshold = 0.2
 
 # if attribute in cols2 has high score with attribute in cols1, it will match with that attribute
-# complicated expressions with i and j are due to scores containing scores for the comma separators, which we ignore
 used_cols2 = []
 for i in range(0, len(scores)):
-    if i % 2 != 0:
-        continue
     for j in range(0, len(scores[0])):
-        if j % 2 != 0:
-            continue
         if scores[i][j] >= threshold:
-            print(cols1[i - i // 2] + " matches with " + cols2[j - j // 2])
-            used_cols2.append(cols2[j - j // 2])
+            print(cols1[i] + " matches with " + cols2[j])
+            used_cols2.append(cols2[j])
 
 # if attribute in table 2 did not have a match in table 1, it must be added to the schema
 final_schema = cols1.copy()

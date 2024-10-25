@@ -20,7 +20,7 @@ from bert_score.utils import (bert_cos_score_idf, cache_scibert, get_bert_embedd
 # MyBERTScorer based on BERTScorer from the bert_score package
 # Added function get_word_similarity
 #     returns word similarity scores, as the original class can only provide a visual plot with this data
-# Modified get_word_similarity() and plot_example() to work with words instead of tokens
+# Modified get_word_similarity and plot_example to work with words instead of tokens
 class MyBERTScorer:
     """
     BERTScore Scorer Object.
@@ -311,8 +311,16 @@ class MyBERTScorer:
                 1 - self.baseline_vals[2].item()
             )
 
+        # Remove commas from data
+        sim = [[x.item() for x in y] for y in sim]
+        for i in range(0, len(sim)):
+            sim[i] = sim[i][::2]
+        sim = sim[::2]
+        words_candidate = words_candidate[::2]
+        words_reference = words_reference[::2]
+
         # Plot scores
-        fig, ax = plt.subplots(figsize=(len(r_tokens), len(h_tokens)))
+        fig, ax = plt.subplots(figsize=(len(words_reference), len(words_candidate)))
         im = ax.imshow(sim, cmap="Blues", vmin=0, vmax=1)
 
         # We want to show all ticks...
@@ -342,10 +350,10 @@ class MyBERTScorer:
                 text = ax.text(
                     j,
                     i,
-                    "{:.3f}".format(sim[i, j].item()),
+                    "{:.3f}".format(sim[i][j]),
                     ha="center",
                     va="center",
-                    color="k" if sim[i, j].item() < 0.5 else "w",
+                    color="k" if sim[i][j] < 0.5 else "w",
                 )
 
         fig.tight_layout()
@@ -353,35 +361,6 @@ class MyBERTScorer:
             plt.savefig(fname, dpi=100)
             print("Saved figure to file: ", fname)
         plt.show()
-
-    # Combines token embeddings into word embeddings by averaging the embeddings of the corresponding tokens for each word
-    #   words is a list where each entry is an individual token or several tokens merged
-    #   tokens is a list of tokens (every token in tokens must be included in words)
-    #   token_embeddings is the embeddings for each token
-    #   ex. words = ["name, age, birthday"], tokens = ["na", "me", ",", "age", ",", "birth", "day"]
-    def word_embeddings(self, words, tokens, token_embeddings):
-        word_embeddings = []
-        token_index = 0
-        for word in words:  # get the embedding for each word by averaging the embeddings of their tokens
-            start = token_index
-            while ''.join(tokens[start:token_index + 1]) != word:  # cat tokens until full word is built
-                token_index += 1
-            end = token_index
-            word_embeddings.append(token_embeddings[0][start + 1:end + 1 + 1].mean(dim=0).unsqueeze(0))
-            token_index += 1
-        total_embedding = torch.cat(word_embeddings, dim=0).unsqueeze(0)  # make the list of word embeddings one tensor
-        return total_embedding
-
-    # like python's split(), but the delimiter is included in the resulting list instead of being discarded
-    # used when converting a sentence into a list of "merged tokens" (multiple tokens concatenated together)
-    #   needed to split the input sentence strings since "," is kept as a token by BERT
-    def split_keep_delimiter(self, sentence: str, delimiter: str):
-        words = sentence.split(delimiter)  # ex. words = ["name", "age", "birthday"]
-        i = 1
-        while i in range(1, len(words)):  # ex. words = ["name", ",", "age", ",", "birthday"]
-            words.insert(i, ',')
-            i += 2
-        return words
 
     # returns a 2D list with the similarity scores between each word in candidate and reference
     def get_word_similarity(self, candidate, reference, fname=""):
@@ -439,7 +418,45 @@ class MyBERTScorer:
                     1 - self.baseline_vals[2].item()
             )
 
-        return [[x.item() for x in y] for y in sim]
+        # Remove commas from data
+        sim = [[x.item() for x in y] for y in sim]
+        for i in range(0, len(sim)):
+            sim[i] = sim[i][::2]
+        sim = sim[::2]
+
+        return sim
+
+    # Combines token embeddings into word embeddings by averaging the embeddings of the constituent tokens for each word
+    #   words is the pre-tokenized sentence split into a list of individual words, punctuation, etc.
+    #     every token in tokens must be included in a word in words
+    #     every word must be the concatenation of several tokens from tokens
+    #   tokens is a list of tokens
+    #     every token in tokens must be a constituent token from a word in words
+    #   token_embeddings is the embeddings for each token
+    #   ex. words = ["name, age, birthday"], tokens = ["na", "me", ",", "age", ",", "birth", "day"]
+    def word_embeddings(self, words, tokens, token_embeddings):
+        word_embeddings = []
+        token_index = 0
+        for word in words:  # get the embedding for each word by averaging the embeddings of their tokens
+            start = token_index
+            while ''.join(tokens[start:token_index + 1]) != word:  # concatenate tokens until full word is built
+                token_index += 1
+            end = token_index
+            word_embeddings.append(token_embeddings[0][start + 1:end + 1 + 1].mean(dim=0).unsqueeze(0))
+            token_index += 1
+        total_embedding = torch.cat(word_embeddings, dim=0).unsqueeze(0)  # make the list of word embeddings one tensor
+        return total_embedding
+
+    # like python's split(), but the delimiter is included in the resulting list instead of being discarded
+    # used when converting a sentence into a list of "merged tokens" (multiple tokens concatenated together)
+    #   needed to split the input sentence strings since "," is kept as a token by BERT
+    def split_keep_delimiter(self, sentence: str, delimiter: str):
+        words = sentence.split(delimiter)  # ex. words = ["name", "age", "birthday"]
+        i = 1
+        while i in range(1, len(words)):  # ex. words = ["name", ",", "age", ",", "birthday"]
+            words.insert(i, ',')
+            i += 2
+        return words
 
     def __repr__(self):
         return f"{self.__class__.__name__}(hash={self.hash}, batch_size={self.batch_size}, nthreads={self.nthreads})"
