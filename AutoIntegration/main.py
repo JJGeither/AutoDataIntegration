@@ -5,7 +5,7 @@ from merge_tables import merge_tables
 import csv
 
 doLoop = True
-while(doLoop)
+while doLoop:
     # Load CSV File
     FILE_PATH_MASTER = input("Filename for table 1: ") #'data.csv'
     FILE_PATH_DEPENDENT = input("Filename for table 2: ") #'data2.csv'
@@ -35,7 +35,7 @@ while(doLoop)
     
         print("Successfully printed to csv file")
 
-    while(True)
+    while True:
         doAgain = input("Would you like to merge more tables? (Y/N)")
         if doAgain == "N":
             doLoop = False
