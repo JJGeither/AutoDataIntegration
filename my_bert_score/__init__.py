@@ -13,33 +13,33 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 from transformers import AutoTokenizer
 
 from bert_score.utils import (bert_cos_score_idf, cache_scibert, get_bert_embedding,
-                    get_hash, get_idf_dict, get_model, get_tokenizer,
-                    lang2model, model2layers, sent_encode)
+                              get_hash, get_idf_dict, get_model, get_tokenizer,
+                              lang2model, model2layers, sent_encode)
 
 
 # MyBERTScorer based on BERTScorer from the bert_score package
 # Added function get_word_similarity
 #     returns word similarity scores, as the original class can only provide a visual plot with this data
-# Modified get_word_similarity and plot_example to work with words instead of tokens
+# Modified get_word_similarity and plotExample to work with words instead of tokens
 class MyBERTScorer:
     """
     BERTScore Scorer Object.
     """
 
     def __init__(
-        self,
-        model_type=None,
-        num_layers=None,
-        batch_size=64,
-        nthreads=4,
-        all_layers=False,
-        idf=False,
-        idf_sents=None,
-        device=None,
-        lang=None,
-        rescale_with_baseline=False,
-        baseline_path=None,
-        use_fast_tokenizer=False,
+            self,
+            model_type=None,
+            num_layers=None,
+            batch_size=64,
+            nthreads=4,
+            all_layers=False,
+            idf=False,
+            idf_sents=None,
+            device=None,
+            lang=None,
+            rescale_with_baseline=False,
+            baseline_path=None,
+            use_fast_tokenizer=False,
     ):
         """
         Args:
@@ -65,12 +65,12 @@ class MyBERTScorer:
         """
 
         assert (
-            lang is not None or model_type is not None
+                lang is not None or model_type is not None
         ), "Either lang or model_type should be specified"
 
         if rescale_with_baseline:
             assert (
-                lang is not None
+                    lang is not None
             ), "Need to specify Language when rescaling with baseline"
 
         if device is None:
@@ -111,10 +111,11 @@ class MyBERTScorer:
         self.use_custom_baseline = self.baseline_path is not None
         if self.baseline_path is None:
             self.baseline_path = os.path.join(
-                #os.path.dirname(__file__),
-                os.path.dirname("C:/Users/Nathan/PycharmProjects/venv/Lib/site-packages/bert_score/rescale_baseline"),
+                os.path.dirname(__file__),
+                #os.path.dirname("C:/Users/Nathan/PycharmProjects/venv/Lib/site-packages/bert_score/rescale_baseline"),
                 f"rescale_baseline/{self.lang}/{self.model_type}.tsv",
             )
+        print("Baseline Path:", self.baseline_path)
 
     @property
     def lang(self):
@@ -147,7 +148,7 @@ class MyBERTScorer:
                 else:
                     self._baseline_vals = (
                         torch.from_numpy(pd.read_csv(self.baseline_path).to_numpy())[
-                            :, 1:
+                        :, 1:
                         ]
                         .unsqueeze(1)
                         .float()
@@ -287,13 +288,23 @@ class MyBERTScorer:
             device=self.device,
             all_layers=False,
         )
+        # ref_embedding.div_(torch.norm(ref_embedding, dim=-1).unsqueeze(-1))
+        # hyp_embedding.div_(torch.norm(hyp_embedding, dim=-1).unsqueeze(-1))
+        # sim = torch.bmm(hyp_embedding, ref_embedding.transpose(1, 2))
+        # sim = sim.squeeze(0).cpu()
 
         r_tokens = [
-            self._tokenizer.decode([i]) for i in sent_encode(self._tokenizer, reference)
-        ][1:-1]
+                       self._tokenizer.decode([i]) for i in sent_encode(self._tokenizer, reference)
+                   ][1:-1]
         h_tokens = [
-            self._tokenizer.decode([i]) for i in sent_encode(self._tokenizer, candidate)
-        ][1:-1]
+                       self._tokenizer.decode([i]) for i in sent_encode(self._tokenizer, candidate)
+                   ][1:-1]
+        # sim = sim[1:-1, 1:-1]
+
+        # if self.rescale_with_baseline:
+        #     sim = (sim - self.baseline_vals[2].item()) / (
+        #         1 - self.baseline_vals[2].item()
+        #     )
 
         # Convert token embeddings to word embeddings
         words_candidate = self.split_keep_delimiter(candidate, ",")
@@ -301,14 +312,14 @@ class MyBERTScorer:
         word_embeddings_candidate = self.word_embeddings(words_candidate, h_tokens, hyp_embedding)
         word_embeddings_reference = self.word_embeddings(words_reference, r_tokens, ref_embedding)
 
-        # Calculate word similarity scores
         word_embeddings_reference.div_(torch.norm(word_embeddings_reference, dim=-1).unsqueeze(-1))
         word_embeddings_candidate.div_(torch.norm(word_embeddings_candidate, dim=-1).unsqueeze(-1))
         sim = torch.bmm(word_embeddings_candidate, word_embeddings_reference.transpose(1, 2))
         sim = sim.squeeze(0).cpu()
+
         if self.rescale_with_baseline:
             sim = (sim - self.baseline_vals[2].item()) / (
-                1 - self.baseline_vals[2].item()
+                    1 - self.baseline_vals[2].item()
             )
 
         # Remove commas from data
@@ -319,11 +330,12 @@ class MyBERTScorer:
         words_candidate = words_candidate[::2]
         words_reference = words_reference[::2]
 
-        # Plot scores
         fig, ax = plt.subplots(figsize=(len(words_reference), len(words_candidate)))
         im = ax.imshow(sim, cmap="Blues", vmin=0, vmax=1)
 
         # We want to show all ticks...
+        # ax.set_xticks(np.arange(len(r_tokens)))
+        # ax.set_yticks(np.arange(len(h_tokens)))
         ax.set_xticks(np.arange(len(words_reference)))
         ax.set_yticks(np.arange(len(words_candidate)))
         # ... and label them with the respective list entries
@@ -347,14 +359,22 @@ class MyBERTScorer:
         # Loop over data dimensions and create text annotations.
         for i in range(len(words_candidate)):
             for j in range(len(words_reference)):
-                text = ax.text(
-                    j,
-                    i,
-                    "{:.3f}".format(sim[i][j]),
-                    ha="center",
-                    va="center",
-                    color="k" if sim[i][j] < 0.5 else "w",
-                )
+                    # text = ax.text(
+                    #     j,
+                    #     i,
+                    #     "{:.3f}".format(sim[i, j].item()),
+                    #     ha="center",
+                    #     va="center",
+                    #     color="k" if sim[i, j].item() < 0.5 else "w",
+                    # )
+                    text = ax.text(
+                        j,
+                        i,
+                        "{:.3f}".format(sim[i][j]),
+                        ha="center",
+                        va="center",
+                        color="k" if sim[i][j] < 0.5 else "w",
+                    )
 
         fig.tight_layout()
         if fname != "":
@@ -394,29 +414,41 @@ class MyBERTScorer:
             device=self.device,
             all_layers=False,
         )
+        # ref_embedding.div_(torch.norm(ref_embedding, dim=-1).unsqueeze(-1))
+        # hyp_embedding.div_(torch.norm(hyp_embedding, dim=-1).unsqueeze(-1))
+        # sim = torch.bmm(hyp_embedding, ref_embedding.transpose(1, 2))
+        # sim = sim.squeeze(0).cpu()
 
         r_tokens = [
-            self._tokenizer.decode([i]) for i in sent_encode(self._tokenizer, reference)
-        ][1:-1]
+                       self._tokenizer.decode([i]) for i in sent_encode(self._tokenizer, reference)
+                   ][1:-1]
         h_tokens = [
-            self._tokenizer.decode([i]) for i in sent_encode(self._tokenizer, candidate)
-        ][1:-1]
+                       self._tokenizer.decode([i]) for i in sent_encode(self._tokenizer, candidate)
+                   ][1:-1]
+        # sim = sim[1:-1, 1:-1]
+        #
+        # if self.rescale_with_baseline:
+        #     sim = (sim - self.baseline_vals[2].item()) / (
+        #         1 - self.baseline_vals[2].item()
+        #     )
 
         # Convert token embeddings to word embeddings
-        words_candidate = self.split_keep_delimiter(candidate, ",")  # only works for our application of comma separat-
-        words_reference = self.split_keep_delimiter(reference, ",")  # -ed lists of attributes
+        words_candidate = self.split_keep_delimiter(candidate, ",")
+        words_reference = self.split_keep_delimiter(reference, ",")
         word_embeddings_candidate = self.word_embeddings(words_candidate, h_tokens, hyp_embedding)
         word_embeddings_reference = self.word_embeddings(words_reference, r_tokens, ref_embedding)
 
-        # Calculate word similarity scores
         word_embeddings_reference.div_(torch.norm(word_embeddings_reference, dim=-1).unsqueeze(-1))
         word_embeddings_candidate.div_(torch.norm(word_embeddings_candidate, dim=-1).unsqueeze(-1))
         sim = torch.bmm(word_embeddings_candidate, word_embeddings_reference.transpose(1, 2))
         sim = sim.squeeze(0).cpu()
+
         if self.rescale_with_baseline:
             sim = (sim - self.baseline_vals[2].item()) / (
                     1 - self.baseline_vals[2].item()
             )
+
+        # return [[x.item() for x in y] for y in sim]
 
         # Remove commas from data
         sim = [[x.item() for x in y] for y in sim]
@@ -426,20 +458,16 @@ class MyBERTScorer:
 
         return sim
 
-    # Combines token embeddings into word embeddings by averaging the embeddings of the constituent tokens for each word
-    #   words is the pre-tokenized sentence split into a list of individual words, punctuation, etc.
-    #     every token in tokens must be included in a word in words
-    #     every word must be the concatenation of several tokens from tokens
-    #   tokens is a list of tokens
-    #     every token in tokens must be a constituent token from a word in words
-    #   token_embeddings is the embeddings for each token
-    #   ex. words = ["name, age, birthday"], tokens = ["na", "me", ",", "age", ",", "birth", "day"]
+    # sentence = "name, age, birthday"
+    # tokens = ["na", "me", ",", "age", ",", "birth", "day"]
     def word_embeddings(self, words, tokens, token_embeddings):
+        print("Tokens: ", tokens)
+        print("words: ", words)
         word_embeddings = []
         token_index = 0
         for word in words:  # get the embedding for each word by averaging the embeddings of their tokens
             start = token_index
-            while ''.join(tokens[start:token_index + 1]) != word:  # concatenate tokens until full word is built
+            while ''.join(tokens[start:token_index + 1]) != word:  # cat tokens until full word is built
                 token_index += 1
             end = token_index
             word_embeddings.append(token_embeddings[0][start + 1:end + 1 + 1].mean(dim=0).unsqueeze(0))
@@ -447,13 +475,13 @@ class MyBERTScorer:
         total_embedding = torch.cat(word_embeddings, dim=0).unsqueeze(0)  # make the list of word embeddings one tensor
         return total_embedding
 
-    # like python's split(), but the delimiter is included in the resulting list instead of being discarded
-    # used when converting a sentence into a list of "merged tokens" (multiple tokens concatenated together)
-    #   needed to split the input sentence strings since "," is kept as a token by BERT
+    # like python's split(), but the delimiter is included in the result instead of being discarded
+    # used when converting a sentence into a list of "combined tokens" (multiple tokens concatenated together)
+    # needed to split the input sentences since "," is kept as a token by BERT
     def split_keep_delimiter(self, sentence: str, delimiter: str):
-        words = sentence.split(delimiter)  # ex. words = ["name", "age", "birthday"]
+        words = sentence.split(delimiter)  # words = ["name", "age", "birthday"]
         i = 1
-        while i in range(1, len(words)):  # ex. words = ["name", ",", "age", ",", "birthday"]
+        while i in range(1, len(words)):  # words = ["name", ",", "age", ",", "birthday"]
             words.insert(i, ',')
             i += 2
         return words
