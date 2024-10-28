@@ -33,7 +33,6 @@ def getMatchingAttributes(table1, table2):
                 highestScore = scores[i][j]
                 highestIndex = j
         # RHS is name in final schema. Replace later with user's choice (temporarily using table 1)
-        table1Map[cols1[i]] = cols1[i]
         if highestIndex != -1 and highestIndex not in usedIndicies:
             usedIndicies.append(highestIndex)
             table1Map[cols1[i]] = cols2[highestIndex]
