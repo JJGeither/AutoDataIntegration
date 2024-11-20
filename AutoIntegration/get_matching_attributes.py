@@ -1,7 +1,6 @@
 # get_matching_attributes.py
 import my_bert_score
 
-
 # This function matches the attributes of two tables' schemas
 def getMatchingAttributes(table1, table2):
     # Get schemas of each table
@@ -16,6 +15,7 @@ def getMatchingAttributes(table1, table2):
     
     # Get similarity scores as a 2D list
     # need to convert the arrays to strings to pass to scorer. Each attribute is separated by a comma
+    t = ','.join(cols1), ','.join(cols2)
     scores = getMatchingAttributes.scorer.get_word_similarity(','.join(cols1), ','.join(cols2))
 
     # attributes with scores greater than this will match
