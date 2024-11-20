@@ -20,7 +20,6 @@ def merge_tables(table1, table2):
 
     finalTable = []
     finalTable.append(finalSchema)
-    print(finalTable)
 
     # Add values from table 1 to the merged table
     for row in table1[1:]:

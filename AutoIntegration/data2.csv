@@ -1,4 +1,4 @@
-Temp,Timestamp,Day Recorded,Status,Full Name
+Temperature,Time,Day Recorded,Status,Full Name
 95,5:53 AM,14/12/2023,High,David
 95,2:27 AM,6/12/2023,Normal,Charlie
 101.3,5:29 PM,12/2/2024,Elevated,Charlie

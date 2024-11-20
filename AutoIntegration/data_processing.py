@@ -1,42 +1,56 @@
 # data_processing.py
 from data_fields import DataFieldFactory
 from categorization import assign_category, extract_column_values
-
-def categorize_table(data, categories):
-    """
-    Categorizes columns in the data based on predefined categories.
-    """
-    column_categories = {}
-
-    for index, col_name in enumerate(data[0]):
-        # Returns the string name of the assigned category
-        category = assign_category(col_name, categories)
-
-        # Retrieves all values within the column
-        column_values = extract_column_values(data, index)
-
-        # Creates polymorphic object based on category and fills it with column_values
-        column_categories[category] = DataFieldFactory.create(category, column_values)
-
-    return column_categories
+import my_bert_score
+from data_fields import get_categorical_subclasses, EMPTYVALUE
+import re
 
 
-def merge_tables(master, dependent, row_count_master, row_count_dependent, null_value='NULL'):
-    """
-    Merges two tables by appending missing fields and filling in NULL where needed.
-    """
-    merged_data = master.copy()
-    all_columns = list(master.keys())
+def standardize_table_units(dataTable):
+    # Extract the first row as column headers
+    headers = dataTable[0]
 
-    all_columns.extend([key for key in dependent if key not in master])
+    # Transpose the table to group data by columns
+    columns = list(zip(*dataTable))
 
-    for column in all_columns:
-        if column not in master:
-            master[column] = DataFieldFactory.create(column, [null_value] * row_count_master)
+    bert_friendly_columns = [
+        " ".join(
+            re.sub(r'[^a-zA-Z0-9:/]', '', str(value)).strip().replace(',', '')
+            for value in sublist[:3] if value is not EMPTYVALUE
+        ).lower()
+        for sublist in columns
+    ]
 
-        if column in dependent and dependent[column].value:
-            master[column].value.extend(dependent[column].value)
+    # Retrieve predefined categories and their keys
+    categories = get_categorical_subclasses()
+    category_keys = list(categories.keys())
+
+    # Initialize BERT scorer with appropriate settings
+    scorer = my_bert_score.MyBERTScorer(lang="en", rescale_with_baseline=True, model_type="microsoft/deberta-xlarge-mnli")
+
+    column_categories = []
+    for bert_column, sublist in zip(bert_friendly_columns, columns):
+        # Calculate similarity scores between the current category and each column header
+        scores = [scorer.get_word_similarity(bert_column, categories[key][1])[0][0] for key in category_keys]
+        # Find the column with the highest similarity score
+        max_val = max(scores)
+        idx_max = scores.index(max_val)
+
+        print(f"Category: {category_keys[idx_max]} | Scores: {scores}")
+
+        if max_val >= 0:
+            # Create a data field and convert the column
+            field = DataFieldFactory.create(category_keys[idx_max], sublist)
+            field.convert()  # Converts the column values in-place
         else:
-            master[column].value.extend([null_value] * row_count_dependent)
+            field = DataFieldFactory.create("etc", sublist)
 
-    return master
+        # Extract the converted values into a list
+        converted_values = list(field.value)
+
+        # Store the converted column under the corresponding category
+        column_categories.append(converted_values)
+
+    # Transpose the list of columns back into rows
+    transposed_result = list(zip(*column_categories))
+    return transposed_result
