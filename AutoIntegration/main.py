@@ -6,7 +6,7 @@ from merge_tables import merge_tables
 import csv
 from log import log, set_logging
 
-set_logging(True)
+set_logging(False)
 log("Starting program...")
 
 doLoop = True
