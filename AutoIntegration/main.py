@@ -4,10 +4,12 @@ from file_io import read_csv, read_category_csv
 from data_processing import standardize_table_units, EMPTYVALUE
 from merge_tables import merge_tables
 import csv
+import warnings
 from log import log, set_logging
 
 if __name__ == "__main__":
 
+    warnings.filterwarnings("ignore")
     set_logging(False)
     log("Starting program...")
     
