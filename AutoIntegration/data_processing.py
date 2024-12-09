@@ -27,7 +27,7 @@ def standardize_table_units(dataTable):
     category_keys = list(categories.keys())
 
     # Initialize BERT scorer with appropriate settings
-    scorer = my_bert_score.MyBERTScorer(lang="en", rescale_with_baseline=True, model_type="microsoft/deberta-xlarge-mnli")
+    scorer = my_bert_score.MyBERTScorer(lang="en", rescale_with_baseline=True, model_type="distilbert-base-uncased")
 
     column_categories = []
     for bert_column, sublist in zip(bert_friendly_columns, columns):
