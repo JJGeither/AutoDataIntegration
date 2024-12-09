@@ -4,6 +4,7 @@ from categorization import assign_category, extract_column_values
 import my_bert_score
 from data_fields import get_categorical_subclasses, EMPTYVALUE
 import re
+from log import log
 
 
 def standardize_table_units(dataTable):
@@ -36,7 +37,7 @@ def standardize_table_units(dataTable):
         max_val = max(scores)
         idx_max = scores.index(max_val)
 
-        print(f"Category: {category_keys[idx_max]} | Scores: {scores}")
+        log(f"Category: {category_keys[idx_max]} | Scores: {scores}")
 
         if max_val >= 0:
             # Create a data field and convert the column
